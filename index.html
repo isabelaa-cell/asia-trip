@@ -167,14 +167,6 @@
   .loc-row.dragging { opacity: .4; background: var(--accent-light); }
   .loc-row.drag-over { border-top: 2px solid var(--accent); }
   .loc-row.drag-over-bottom { border-bottom: 2px solid var(--accent); }
-
-  /* ── City drag & drop ── */
-  .city-drag-handle { display: flex; align-items: center; justify-content: center; cursor: grab; color: var(--text-hint); width: 16px; flex-shrink: 0; }
-  .city-drag-handle:active { cursor: grabbing; }
-  .city-drag-handle svg { width: 14px; height: 14px; }
-  .city-card.dragging { opacity: .4; }
-  .city-card.drag-over-top { border-top: 2px solid var(--accent); }
-  .city-card.drag-over-bottom { border-bottom: 2px solid var(--accent); }
 </style>
 </head>
 <body>
@@ -470,9 +462,6 @@ function buildCityCard(city, ci) {
   hdr.className = `city-header ${isOpen ? 'open' : ''}`;
   hdr.id = `city-hdr-${ci}`;
   hdr.innerHTML = `
-    <div class="city-drag-handle" title="Drag to reorder cities">
-      <svg viewBox="0 0 20 20" fill="currentColor"><path d="M7 2a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4zm6-12a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4z"/></svg>
-    </div>
     <svg class="chevron ${isOpen?'open':''}" id="chevron-${ci}" viewBox="0 0 20 20" fill="currentColor">
       <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
     </svg>
@@ -489,55 +478,8 @@ function buildCityCard(city, ci) {
       ${cities.length>1?`<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeCity(${ci})">Remove</button>`:''}
     </div>`;
   hdr.addEventListener('click', (e) => {
-    if (e.target.closest('.city-name-input') || e.target.closest('button') || e.target.closest('.city-drag-handle')) return;
+    if (e.target.closest('.city-name-input') || e.target.closest('button')) return;
     toggleCity(ci);
-  });
-
-  // City drag events — only activate draggable on the city handle to avoid
-  // conflicting with location row drags inside the card
-  const cityDragHandle = hdr.querySelector('.city-drag-handle');
-  if (cityDragHandle) {
-    card.draggable = false; // off by default
-    cityDragHandle.addEventListener('mousedown', () => { card.draggable = true; });
-    cityDragHandle.addEventListener('mouseup', () => { card.draggable = false; });
-    document.addEventListener('mouseup', () => { card.draggable = false; }); // safety reset
-    card.addEventListener('dragstart', (e) => {
-      if (!card.draggable) { e.preventDefault(); return; }
-      e.dataTransfer.setData('text/plain', JSON.stringify({type:'city', ci}));
-      e.dataTransfer.effectAllowed = 'move';
-      setTimeout(() => card.classList.add('dragging'), 0);
-    });
-    card.addEventListener('dragend', () => {
-      card.classList.remove('dragging');
-      card.draggable = false;
-    });
-  }
-
-  card.addEventListener('dragover', (e) => {
-    if (!e.dataTransfer.types.includes('text/plain')) return;
-    e.preventDefault();
-    document.querySelectorAll('.city-card').forEach(c => c.classList.remove('drag-over-top','drag-over-bottom'));
-    const rect = card.getBoundingClientRect();
-    if (e.clientY < rect.top + rect.height / 2) card.classList.add('drag-over-top');
-    else card.classList.add('drag-over-bottom');
-  });
-
-  card.addEventListener('dragleave', (e) => {
-    if (!card.contains(e.relatedTarget)) card.classList.remove('drag-over-top','drag-over-bottom');
-  });
-
-  card.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    card.classList.remove('drag-over-top','drag-over-bottom');
-    let payload;
-    try { payload = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
-    if (payload.type !== 'city') return;
-    const fromCi = payload.ci;
-    if (fromCi === ci) return;
-    const rect = card.getBoundingClientRect();
-    let targetCi = ci;
-    if (e.clientY >= rect.top + rect.height / 2) targetCi = ci + 1;
-    await reorderCity(fromCi, targetCi);
   });
 
   card.appendChild(hdr);
@@ -944,28 +886,6 @@ function buildGMapsUrl(locs) {
 
 // ── Helpers ───────────────────────────────────────────────────────
 // ── Reorder locations ────────────────────────────────────────────
-
-async function reorderCity(fromCi, toCi) {
-  const adjusted = toCi > fromCi ? toCi - 1 : toCi;
-  const moved = cities.splice(fromCi, 1)[0];
-  cities.splice(adjusted, 0, moved);
-  cities.forEach((c, i) => c.sort_order = i);
-
-  renderAll();
-  renderMap();
-
-  setSyncState('syncing', 'Saving order…');
-  try {
-    await Promise.all(cities.map((c, i) =>
-      c.id ? sbFetch(`cities?id=eq.${c.id}`, 'PATCH', {sort_order: i}) : Promise.resolve()
-    ));
-    setSyncState('synced', 'Live');
-    showToast('City order saved!');
-  } catch(e) {
-    setSyncState('error', 'Save failed');
-    console.error('City reorder save failed:', e);
-  }
-}
 
 async function reorderLocation(ci, fromLi, toLi) {
   const locs = cities[ci].locations;
