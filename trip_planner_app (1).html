@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Asia Trip — Lighthouse Partners</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0efe9;
+    --border: #e3e1d9;
+    --text: #181714;
+    --text-muted: #6b6960;
+    --text-hint: #a09d94;
+    --accent: #1a56db;
+    --accent-light: #eef2fd;
+    --accent-dark: #1240a8;
+    --success: #0f6b35;
+    --success-light: #eafaf1;
+    --warning: #a05c00;
+    --warning-light: #fff9ed;
+    --warning-border: #fcd34d;
+    --danger: #be2c2c;
+    --danger-light: #fef2f2;
+    --radius: 12px;
+    --radius-sm: 7px;
+    --shadow: 0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04);
+    --font: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; line-height: 1.5; }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 0 2rem; display: flex; align-items: center; justify-content: space-between;
+    height: 56px; position: sticky; top: 0; z-index: 200; box-shadow: var(--shadow);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: var(--text); }
+  .logo-dot { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: flex; align-items: center; justify-content: center; }
+  .logo-dot svg { fill: white; width: 16px; height: 16px; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .sync-indicator { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-hint); }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-hint); transition: background .3s; }
+  .sync-dot.synced { background: #22c55e; }
+  .sync-dot.syncing { background: #f59e0b; animation: pulse 1s infinite; }
+  .sync-dot.error { background: var(--danger); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* ── Buttons ── */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all .15s; font-family: var(--font); text-decoration: none; }
+  .btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .btn-primary { background: var(--accent); color: white; } .btn-primary:hover { background: var(--accent-dark); }
+  .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); } .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+  .btn-danger { background: transparent; color: var(--danger); border: 1px solid #fca5a5; } .btn-danger:hover { background: var(--danger-light); }
+  .btn-success { background: var(--success); color: white; } .btn-success:hover { background: #0a5228; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .btn-icon { padding: 5px; border-radius: var(--radius-sm); background: transparent; border: 1px solid transparent; cursor: pointer; color: var(--text-hint); display: inline-flex; align-items: center; transition: all .15s; }
+  .btn-icon:hover { background: var(--surface2); color: var(--danger); border-color: #fca5a5; }
+  .btn-icon svg { width: 14px; height: 14px; }
+
+  /* ── Layout ── */
+  .main { max-width: 920px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  .page-header { margin-bottom: 2rem; }
+  .page-title { font-size: 21px; font-weight: 700; margin-bottom: 3px; }
+  .page-sub { font-size: 13px; color: var(--text-muted); }
+
+  /* ── Status bar ── */
+  .status-bar {
+    background: var(--accent-light); border: 1px solid #c7d7f8; border-radius: var(--radius-sm);
+    padding: 10px 14px; margin-bottom: 1.5rem; font-size: 13px; color: var(--accent-dark);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .status-bar.error { background: var(--danger-light); border-color: #fca5a5; color: var(--danger); }
+  .status-bar.success { background: var(--success-light); border-color: #86efac; color: var(--success); }
+  .status-bar.hidden { display: none; }
+
+  /* ── City card ── */
+  .city-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 1.25rem; overflow: hidden; box-shadow: var(--shadow); }
+  .city-header { display: flex; align-items: center; gap: 10px; padding: .875rem 1.25rem; cursor: pointer; user-select: none; transition: background .12s; border-bottom: 1px solid transparent; }
+  .city-header:hover { background: var(--surface2); }
+  .city-header.open { border-bottom-color: var(--border); }
+  .chevron { width: 16px; height: 16px; flex-shrink: 0; color: var(--text-hint); transition: transform .2s; }
+  .chevron.open { transform: rotate(90deg); }
+  .city-num { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-light); color: var(--accent); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .city-name-wrap { flex: 1; min-width: 0; }
+  .city-name-input { font-size: 15px; font-weight: 600; border: none; outline: none; background: transparent; color: var(--text); font-family: var(--font); width: 100%; }
+  .city-name-input::placeholder { color: var(--text-hint); font-weight: 400; }
+  .city-meta { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0; }
+  .city-count { font-size: 12px; color: var(--text-hint); }
+  .missing-pill { font-size: 11px; font-weight: 600; background: var(--warning-light); color: var(--warning); border: 1px solid var(--warning-border); border-radius: 20px; padding: 2px 9px; white-space: nowrap; }
+
+  /* ── City body ── */
+  .city-body { max-height: 0; overflow: hidden; transition: max-height .25s ease; }
+  .city-body.open { max-height: 9999px; }
+
+  /* ── Table ── */
+  .tbl-head { display: grid; grid-template-columns: 18px 26px 1fr 1.7fr 80px 28px; gap: 8px; padding: 7px 1.25rem; background: var(--surface2); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-hint); }
+  .loc-row { display: grid; grid-template-columns: 18px 26px 1fr 1.7fr 80px 28px; gap: 8px; padding: 7px 1.25rem; border-top: 1px solid var(--border); align-items: start; transition: background .1s; }
+  .loc-row:hover { background: #fafaf8; }
+  .loc-row.saving { opacity: .6; }
+  .row-num { font-size: 11px; color: var(--text-hint); text-align: center; padding-top: 7px; font-weight: 500; }
+  .loc-input { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: var(--font); color: var(--text); background: var(--surface); transition: border-color .15s; resize: none; }
+  .loc-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
+  .loc-input::placeholder { color: var(--text-hint); }
+  .loc-input.warn { border-color: var(--warning-border); background: var(--warning-light); }
+  .loc-status { font-size: 10px; margin-top: 3px; display: flex; align-items: center; gap: 3px; }
+  .loc-status.pinned { color: var(--success); }
+  .loc-status.needs-pin { color: var(--warning); }
+  .loc-status.missing { color: var(--warning); }
+  .maps-link { font-size: 11px; font-weight: 500; color: var(--accent); text-decoration: none; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); display: inline-flex; align-items: center; gap: 4px; transition: all .15s; white-space: nowrap; margin-top: 1px; }
+  .maps-link:hover { background: var(--accent-light); border-color: #b3c8f8; }
+  .maps-link.disabled { opacity: .4; pointer-events: none; }
+  .maps-link svg { width: 11px; height: 11px; }
+  .add-row-btn-wrap { padding: 9px 1.25rem; border-top: 1px dashed var(--border); background: #fafaf8; }
+
+  /* ── Map ── */
+  .map-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); margin-top: 2rem; }
+  .map-header { padding: .875rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .map-header-left { font-size: 14px; font-weight: 600; }
+  .city-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .city-tab { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1px solid var(--border); background: transparent; cursor: pointer; color: var(--text-muted); font-family: var(--font); transition: all .15s; }
+  .city-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .city-tab:hover:not(.active) { background: var(--surface2); }
+  #map { height: 400px; width: 100%; }
+  .map-status { padding: 6px 1.25rem; background: var(--surface2); border-top: 1px solid var(--border); font-size: 11px; color: var(--text-hint); min-height: 28px; }
+  .map-legend { padding: .75rem 1.25rem; background: var(--surface2); border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 8px; min-height: 40px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted); }
+  .legend-dot { width: 18px; height: 18px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0; }
+
+  /* ── Route ── */
+  .route-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; box-shadow: var(--shadow); margin-top: 1.5rem; }
+  .route-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 7px; }
+  .route-city { margin-bottom: .875rem; }
+  .route-city:last-child { margin-bottom: 0; }
+  .route-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-hint); margin-bottom: 5px; }
+  .route-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--surface2); border-radius: var(--radius-sm); border: 1px solid var(--border); }
+  .route-stops { flex: 1; font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+  .route-stops strong { color: var(--text); font-weight: 500; }
+  .route-empty { font-size: 12px; color: var(--text-hint); font-style: italic; }
+
+  /* ── Add city ── */
+  .add-city-wrap { text-align: center; margin-top: .75rem; }
+
+  /* ── Toast ── */
+  .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--text); color: white; padding: 10px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; opacity: 0; transform: translateY(8px); transition: all .2s; pointer-events: none; z-index: 9999; }
+  .toast.show { opacity: 1; transform: none; }
+
+  /* ── Loading screen ── */
+  #loading-screen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 9998; }
+  #loading-screen .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+  #loading-screen p { font-size: 14px; color: var(--text-muted); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading-screen.hidden { display: none; }
+
+  /* ── Drag & drop ── */
+  .drag-handle { display: flex; align-items: center; justify-content: center; cursor: grab; color: var(--text-hint); padding-top: 6px; touch-action: none; }
+  .drag-handle:active { cursor: grabbing; }
+  .drag-handle svg { width: 14px; height: 14px; }
+  .loc-row.dragging { opacity: .4; background: var(--accent-light); }
+  .loc-row.drag-over { border-top: 2px solid var(--accent); }
+  .loc-row.drag-over-bottom { border-bottom: 2px solid var(--accent); }
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <p>Loading your trip…</p>
+</div>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"><svg viewBox="0 0 20 20"><path d="M10 2C6.13 2 3 5.13 3 9c0 5.25 7 11 7 11s7-5.75 7-11c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S8.62 6.5 10 6.5s2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div>
+    Asia Trip
+  </div>
+  <div class="header-right">
+    <div class="sync-indicator">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span id="sync-label">Connecting…</span>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="renderMap()">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>
+      Update Map
+    </button>
+  </div>
+</header>
+
+<div class="main">
+  <div class="page-header">
+    <h1 class="page-title">Asia Trip Planner</h1>
+    <p class="page-sub">Changes save instantly. Anyone with this link sees the same data in real time.</p>
+  </div>
+
+  <div id="status-bar" class="status-bar hidden"></div>
+
+  <div id="cities-container"></div>
+
+  <div class="add-city-wrap">
+    <button class="btn btn-ghost" onclick="addCity()">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+      Add city
+    </button>
+  </div>
+
+  <div class="map-card">
+    <div class="map-header">
+      <span class="map-header-left">📍 Map</span>
+      <div class="city-tabs" id="city-tabs"></div>
+    </div>
+    <div id="map"></div>
+    <div class="map-status" id="map-status">Select a city tab to view pins.</div>
+    <div class="map-legend" id="map-legend"></div>
+  </div>
+
+  <div class="route-card">
+    <h3>
+      <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      Google Maps routes
+    </h3>
+    <div id="route-container"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://xvntbmwaxeimkgtvbryv.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2bnRibXdheGVpbWtndHZicnl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNDM2NTIsImV4cCI6MjA5NzcxOTY1Mn0.kW_XZSfjyrtujwsuvED32kcOn95negb2q2HwJt63I74';
+
+const PIN_COLORS = ['#1a56db','#d4522a','#0f6b35','#7b3fa0','#c0822d','#0e6b6b','#b5450b','#8c3a6e','#2d7a5e','#a04a1e','#4a5ea0','#8a2222'];
+
+// ── Supabase helpers ──────────────────────────────────────────────
+async function sbFetch(path, method='GET', body=null) {
+  const opts = {
+    method,
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, opts);
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`${res.status}: ${err}`);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// ── Bootstrap DB ──────────────────────────────────────────────────
+async function bootstrapDB() {
+  // Create tables via RPC if they don't exist, using raw SQL through the REST API
+  // We'll use a simpler approach: just try to select and create via upsert
+  // Tables needed: cities (id, name, sort_order), locations (id, city_id, label, address, lat, lng, sort_order)
+  // We create them via Supabase's SQL editor approach — but since we can't run DDL from anon,
+  // we'll check if tables exist by querying them
+  try {
+    await sbFetch('cities?limit=1');
+    return true; // tables exist
+  } catch(e) {
+    if (e.message.includes('42P01') || e.message.includes('does not exist') || e.message.includes('relation')) {
+      return false; // tables don't exist yet
+    }
+    throw e;
+  }
+}
+
+// ── State ─────────────────────────────────────────────────────────
+let cities = []; // [{id, name, sort_order, locations:[{id,city_id,label,address,lat,lng,sort_order}]}]
+let activeTab = 0;
+let map = null;
+let markersLayer = null;
+let collapsedCities = {};
+let saveTimers = {};
+
+// ── Sync UI ───────────────────────────────────────────────────────
+function setSyncState(state, label) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  dot.className = 'sync-dot ' + state;
+  lbl.textContent = label;
+}
+
+function showStatus(msg, type='info') {
+  const bar = document.getElementById('status-bar');
+  bar.textContent = msg;
+  bar.className = `status-bar ${type}`;
+}
+function hideStatus() { document.getElementById('status-bar').className = 'status-bar hidden'; }
+
+// ── Load data ─────────────────────────────────────────────────────
+async function loadData() {
+  setSyncState('syncing', 'Loading…');
+  try {
+    const dbOk = await bootstrapDB();
+    if (!dbOk) {
+      showStatus('⚠️ Database tables not set up yet. See instructions below.', 'error');
+      setSyncState('error', 'Setup needed');
+      showSetupInstructions();
+      return;
+    }
+
+    const [rawCities, rawLocations] = await Promise.all([
+      sbFetch('cities?order=sort_order'),
+      sbFetch('locations?order=sort_order')
+    ]);
+
+    if (rawCities.length === 0) {
+      // First run — seed with our data
+      await seedInitialData();
+      await loadData();
+      return;
+    }
+
+    cities = rawCities.map(c => ({
+      ...c,
+      locations: rawLocations.filter(l => l.city_id === c.id)
+    }));
+
+    setSyncState('synced', 'Live');
+    hideStatus();
+    renderAll();
+    renderMap();
+  } catch(e) {
+    console.error('Load error:', e);
+    setSyncState('error', 'Error');
+    showStatus('Could not connect to database: ' + e.message, 'error');
+  }
+  document.getElementById('loading-screen').classList.add('hidden');
+}
+
+// ── Seed initial data ─────────────────────────────────────────────
+async function seedInitialData() {
+  showStatus('Setting up your trip for the first time…', 'info');
+  const initialData = [
+    { name: 'Hong Kong', sort_order: 0, locations: [
+      {label:'Athos Capital Limited',address:"8 Queen's Road, 8th Floor, Central, Hong Kong",lat:22.2820,lng:114.1558},
+      {label:'Grand Alliance Asset Management',address:"Suite 801, 8/F, Hong Kong Club Building, 3A Chater Road, Central, Hong Kong",lat:22.2815,lng:114.1580},
+      {label:'Long Corridor Asset Management',address:'AIA Tower, 183 Electric Road, North Point, Hong Kong',lat:22.2908,lng:114.1921},
+      {label:'Monolith Management',address:'Champion Tower, 3 Garden Road, Central, Hong Kong',lat:22.2796,lng:114.1572},
+      {label:'Coordinates Capital Management',address:'18 Harbour Road, Suite 5308, Wan Chai, Hong Kong',lat:22.2831,lng:114.1723},
+      {label:'OQ Funds Management',address:'29 Wyndham Street, 15/F, LKF 29, Central, Hong Kong',lat:22.2810,lng:114.1550},
+      {label:'ActusRayPartners',address:'Room 6-8, 40/F, Lee Garden One, 33 Hysan Ave, Causeway Bay, Hong Kong',lat:22.2799,lng:114.1862},
+      {label:'Kaleido Capital Partners',address:"29 Queen's Road Central, Suite 1903, Central, Hong Kong",lat:22.2820,lng:114.1558},
+      {label:'DC Investments (HK)',address:"29 Queen's Road Central, L19, China Building, Central, Hong Kong",lat:22.2818,lng:114.1556},
+      {label:'Pamalican Asset Management',address:"Suite 8, 18th Floor, Edinburgh Tower, 15 Queen's Road Central, Hong Kong",lat:22.2823,lng:114.1565},
+      {label:'Protium Capital Limited',address:'3 Garden Road, Room 4427, Champion Tower, Central, Hong Kong',lat:22.2796,lng:114.1572},
+      {label:'Acalane Capital',address:'Lee Garden Five, 18 Hysan Avenue, Room 1802A, Causeway Bay, Hong Kong',lat:null,lng:null},
+      {label:'Lighthouse',address:"76th Floor, Suite 7609, The Center, 99 Queen's Road Central, Hong Kong",lat:22.2820,lng:114.1558},
+      {label:'Optimas',address:"32/F, Henley Building, No. 5 Queen's Road Central, Hong Kong",lat:22.2822,lng:114.1554},
+      {label:'Valliance Asset Management',address:"8 Queen's Road, 16/F, Central, Hong Kong",lat:null,lng:null},
+      {label:'WizardQuant',address:'',lat:null,lng:null},
+      {label:'Keyrock',address:'',lat:null,lng:null}
+    ]},
+    { name: 'Singapore', sort_order: 1, locations: [
+      {label:'RV Capital Management',address:'16 Raffles Quay, #21-03, Hong Leong Building, Singapore 048581',lat:1.2847,lng:103.8508},
+      {label:'Gordian Capital',address:'#05-02, Philippine Airlines Building, 135 Cecil Street, Singapore 069536',lat:1.2793,lng:103.8478},
+      {label:'Blue Swell Asset Management',address:'OUE Bayfront, #08-05, 50 Collyer Quay, Singapore 049321',lat:1.2832,lng:103.8503},
+      {label:'Alithion Capital Management',address:'8 Eu Tong Sen Street, #16-89, Singapore 059818',lat:1.2839,lng:103.8455},
+      {label:'Alcea Investment & Research',address:'1 Paya Lebar Link, #04-01, Singapore 408533',lat:1.3178,lng:103.8927},
+      {label:'Arohi Asset Management',address:'2 Battery Road, #24-01, Maybank Tower, Singapore 049907',lat:null,lng:null}
+    ]},
+    { name: 'Tokyo', sort_order: 2, locations: [
+      {label:'Lighthouse',address:'Level 20, Toranomon Hills Mori Tower, 1-23-1 Toranomon, Minato-ku, Tokyo 105-6320, Japan',lat:35.6672,lng:139.7495},
+      {label:'Gordian Capital',address:'Komatsu Building 6F, 3-3-2 Kyobashi, Chuo-ku, Tokyo 104-0031, Japan',lat:35.6771,lng:139.7719},
+      {label:'Pi Radians Capital',address:'6-5 Nihonbashi Kabutocho, Chuo-ku, Tokyo 103-0026, Japan',lat:35.6823,lng:139.7742},
+      {label:'Schweitzer Investment',address:'4F Hirakawacho KS Building, 2-4-14 Hirakawacho, Chiyoda-ku, Tokyo 102-0093, Japan',lat:35.6868,lng:139.7438},
+      {label:'Sumitomo Mitsui Asset Management',address:'Toranomon 1-17-1, Minato-ku, Tokyo 105-6228, Japan',lat:35.6674,lng:139.7494}
+    ]},
+    { name: 'Shanghai', sort_order: 3, locations: [
+      {label:'WizardQuant Capital Advisors',address:'No. 8, Lane 1267, Dongfang Road, 15F, Lujiazui Financial Service Plaza Phase II, Pudong New Area, Shanghai, China',lat:31.2298,lng:121.5440},
+      {label:'Mingshi Investment Management',address:'168 Gongping Road, 32F, West Tower, Raffles City The Bund, Shanghai, China',lat:31.2478,lng:121.4928},
+      {label:'Wanyan Asset',address:'',lat:null,lng:null}
+    ]}
+  ];
+
+  for (const city of initialData) {
+    const [createdCity] = await sbFetch('cities', 'POST', {name: city.name, sort_order: city.sort_order});
+    for (let i = 0; i < city.locations.length; i++) {
+      const loc = city.locations[i];
+      await sbFetch('locations', 'POST', {
+        city_id: createdCity.id, label: loc.label, address: loc.address,
+        lat: loc.lat, lng: loc.lng, sort_order: i
+      });
+    }
+  }
+}
+
+// ── Show setup instructions ───────────────────────────────────────
+function showSetupInstructions() {
+  document.getElementById('loading-screen').classList.add('hidden');
+  const container = document.getElementById('cities-container');
+  container.innerHTML = `
+    <div style="background:white;border:1px solid #e3e1d9;border-radius:12px;padding:2rem;box-shadow:0 1px 3px rgba(0,0,0,.07)">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px">⚙️ One-time database setup required</h2>
+      <p style="color:#6b6960;margin-bottom:16px;font-size:13px">You need to create two tables in your Supabase project. This only takes 2 minutes:</p>
+      <ol style="color:#6b6960;font-size:13px;line-height:2;padding-left:1.25rem;margin-bottom:16px">
+        <li>Go to your <a href="https://supabase.com/dashboard" target="_blank" style="color:#1a56db">Supabase dashboard</a></li>
+        <li>Click <strong>SQL Editor</strong> in the left sidebar</li>
+        <li>Click <strong>New query</strong></li>
+        <li>Paste the SQL below and click <strong>Run</strong></li>
+        <li>Come back here and refresh the page</li>
+      </ol>
+      <div style="background:#f5f4f0;border:1px solid #e3e1d9;border-radius:8px;padding:1rem;font-family:monospace;font-size:12px;white-space:pre;overflow-x:auto;margin-bottom:16px">create table if not exists cities (
+  id uuid primary key default gen_random_uuid(),
+  name text not null default '',
+  sort_order integer not null default 0,
+  created_at timestamptz default now()
+);
+
+create table if not exists locations (
+  id uuid primary key default gen_random_uuid(),
+  city_id uuid references cities(id) on delete cascade,
+  label text not null default '',
+  address text not null default '',
+  lat double precision,
+  lng double precision,
+  sort_order integer not null default 0,
+  created_at timestamptz default now()
+);
+
+alter table cities enable row level security;
+alter table locations enable row level security;
+
+create policy "Public read/write cities" on cities for all using (true) with check (true);
+create policy "Public read/write locations" on locations for all using (true) with check (true);</div>
+      <button class="btn btn-primary" onclick="window.location.reload()">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+        I ran the SQL — refresh now
+      </button>
+    </div>`;
+}
+
+// ── Render all ────────────────────────────────────────────────────
+function renderAll() {
+  const container = document.getElementById('cities-container');
+  container.innerHTML = '';
+  cities.forEach((city, ci) => container.appendChild(buildCityCard(city, ci)));
+  renderTabs();
+  renderRoutes();
+}
+
+// ── City card ─────────────────────────────────────────────────────
+function buildCityCard(city, ci) {
+  const card = document.createElement('div');
+  card.className = 'city-card'; card.id = `city-card-${ci}`;
+
+  const isOpen = !collapsedCities[ci];
+  const locs = city.locations || [];
+  const filled = locs.filter(l => l.label.trim() || l.address.trim()).length;
+  const missing = locs.filter(l => l.label.trim() && !l.address.trim()).length;
+
+  // Header
+  const hdr = document.createElement('div');
+  hdr.className = `city-header ${isOpen ? 'open' : ''}`;
+  hdr.id = `city-hdr-${ci}`;
+  hdr.innerHTML = `
+    <svg class="chevron ${isOpen?'open':''}" id="chevron-${ci}" viewBox="0 0 20 20" fill="currentColor">
+      <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+    </svg>
+    <div class="city-num">${ci+1}</div>
+    <div class="city-name-wrap">
+      <input class="city-name-input" type="text" placeholder="City name" value="${esc(city.name)}"
+        oninput="debounceSaveCity(${ci}, this.value)"
+        onclick="event.stopPropagation()" />
+    </div>
+    <div class="city-meta">
+      <span class="city-count">${filled} location${filled!==1?'s':''}</span>
+      ${missing>0?`<span class="missing-pill">⚠ ${missing} missing</span>`:''}
+      <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();addLocation(${ci})">+ Add</button>
+      ${cities.length>1?`<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeCity(${ci})">Remove</button>`:''}
+    </div>`;
+  hdr.addEventListener('click', (e) => {
+    if (e.target.closest('.city-name-input') || e.target.closest('button')) return;
+    toggleCity(ci);
+  });
+  card.appendChild(hdr);
+
+  // Body
+  const body = document.createElement('div');
+  body.className = `city-body ${isOpen?'open':''}`; body.id = `city-body-${ci}`;
+
+  const thead = document.createElement('div');
+  thead.className = 'tbl-head';
+  thead.innerHTML = '<span></span><span>#</span><span>Label</span><span>Address</span><span></span><span></span>';
+  body.appendChild(thead);
+
+  locs.forEach((loc, li) => body.appendChild(buildLocRow(ci, li, loc)));
+
+  const addWrap = document.createElement('div');
+  addWrap.className = 'add-row-btn-wrap';
+  addWrap.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="addLocation(${ci})">
+    <svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+    Add location
+  </button>`;
+  body.appendChild(addWrap);
+  card.appendChild(body);
+  return card;
+}
+
+function toggleCity(ci) {
+  collapsedCities[ci] = !collapsedCities[ci];
+  const body = document.getElementById(`city-body-${ci}`);
+  const chevron = document.getElementById(`chevron-${ci}`);
+  const hdr = document.getElementById(`city-hdr-${ci}`);
+  if (!body) return;
+  if (collapsedCities[ci]) {
+    body.classList.remove('open'); chevron.classList.remove('open'); hdr.classList.remove('open');
+  } else {
+    body.classList.add('open'); chevron.classList.add('open'); hdr.classList.add('open');
+  }
+}
+
+// ── Location row ──────────────────────────────────────────────────
+function buildLocRow(ci, li, loc) {
+  const row = document.createElement('div');
+  row.className = 'loc-row'; row.id = `loc-row-${ci}-${li}`;
+
+  const hasLabel = loc.label.trim().length > 0;
+  const hasAddr = loc.address.trim().length > 0;
+  const hasCoords = loc.lat !== null && loc.lng !== null;
+  const isEmpty = !hasLabel && !hasAddr;
+
+  let statusHtml = '';
+  if (!isEmpty) {
+    if (hasCoords) {
+      statusHtml = `<span class="loc-status pinned">
+        <svg width="9" height="9" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>
+        pinned</span>`;
+    } else if (hasAddr) {
+      statusHtml = `<span class="loc-status needs-pin">↑ click Update Map</span>`;
+    } else {
+      statusHtml = `<span class="loc-status missing">⚠ address missing</span>`;
+    }
+  }
+
+  const gmapsUrl = hasAddr ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address)}` : '#';
+
+  row.innerHTML = `
+    <div class="drag-handle" draggable="true" data-ci="${ci}" data-li="${li}" title="Drag to reorder">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path d="M7 2a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4zm6-12a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4z"/></svg>
+    </div>
+    <div class="row-num">${li+1}</div>
+    <div>
+      <input class="loc-input ${hasLabel&&!hasAddr?'warn':''}" type="text" placeholder="Label" value="${esc(loc.label)}"
+        oninput="debounceSaveLoc(${ci},${li},'label',this.value)" />
+    </div>
+    <div>
+      <input class="loc-input ${hasLabel&&!hasAddr?'warn':''}" type="text" placeholder="Address or place name" value="${esc(loc.address)}"
+        oninput="debounceSaveLoc(${ci},${li},'address',this.value)" />
+      ${statusHtml}
+    </div>
+    <div>
+      <a class="maps-link ${hasAddr?'':'disabled'}" href="${gmapsUrl}" target="_blank" id="gmaps-${ci}-${li}">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>Maps
+      </a>
+    </div>
+    <div>
+      <button class="btn-icon" onclick="removeLocation(${ci},${li})" title="Remove">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </button>
+    </div>`;
+
+  // Attach drag events
+  const handle = row.querySelector('.drag-handle');
+  handle.addEventListener('dragstart', (e) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ci, li}));
+    e.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => row.classList.add('dragging'), 0);
+  });
+  handle.addEventListener('dragend', () => row.classList.remove('dragging'));
+
+  row.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    document.querySelectorAll('.loc-row').forEach(r => r.classList.remove('drag-over','drag-over-bottom'));
+    const rect = row.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    if (e.clientY < midY) row.classList.add('drag-over');
+    else row.classList.add('drag-over-bottom');
+  });
+
+  row.addEventListener('dragleave', () => {
+    row.classList.remove('drag-over','drag-over-bottom');
+  });
+
+  row.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    row.classList.remove('drag-over','drag-over-bottom');
+    const {ci: fromCi, li: fromLi} = JSON.parse(e.dataTransfer.getData('text/plain'));
+    if (fromCi !== ci) { showToast("Can't move between cities."); return; }
+    if (fromLi === li) return;
+    const rect = row.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    let targetLi = li;
+    if (e.clientY >= midY) targetLi = li + 1;
+    await reorderLocation(ci, fromLi, targetLi);
+  });
+  return row;
+}
+
+// ── Debounced saves ───────────────────────────────────────────────
+function debounceSaveCity(ci, val) {
+  cities[ci].name = val;
+  renderTabs(); renderRoutes();
+  clearTimeout(saveTimers[`city-${ci}`]);
+  saveTimers[`city-${ci}`] = setTimeout(() => saveCity(ci), 800);
+}
+
+async function saveCity(ci) {
+  const city = cities[ci];
+  if (!city.id) return;
+  setSyncState('syncing', 'Saving…');
+  try {
+    await sbFetch(`cities?id=eq.${city.id}`, 'PATCH', {name: city.name});
+    setSyncState('synced', 'Saved');
+    setTimeout(()=>setSyncState('synced','Live'), 1500);
+  } catch(e) { setSyncState('error', 'Save failed'); console.error(e); }
+}
+
+function debounceSaveLoc(ci, li, field, val) {
+  const loc = cities[ci].locations[li];
+  if (field === 'address' && loc.address !== val) { loc.lat = null; loc.lng = null; }
+  loc[field] = val;
+
+  // Update Maps link immediately
+  const mapsLink = document.getElementById(`gmaps-${ci}-${li}`);
+  if (mapsLink) {
+    const addr = loc.address.trim();
+    mapsLink.href = addr ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}` : '#';
+    addr ? mapsLink.classList.remove('disabled') : mapsLink.classList.add('disabled');
+  }
+
+  renderRoutes();
+  clearTimeout(saveTimers[`loc-${ci}-${li}`]);
+  saveTimers[`loc-${ci}-${li}`] = setTimeout(() => saveLoc(ci, li), 800);
+}
+
+async function saveLoc(ci, li) {
+  const loc = cities[ci].locations[li];
+  if (!loc.id) return;
+  setSyncState('syncing', 'Saving…');
+  try {
+    await sbFetch(`locations?id=eq.${loc.id}`, 'PATCH', {
+      label: loc.label, address: loc.address, lat: loc.lat, lng: loc.lng
+    });
+    setSyncState('synced', 'Saved');
+    setTimeout(()=>setSyncState('synced','Live'), 1500);
+  } catch(e) { setSyncState('error', 'Save failed'); console.error(e); }
+}
+
+// ── Add / Remove ──────────────────────────────────────────────────
+async function addCity() {
+  setSyncState('syncing', 'Adding…');
+  try {
+    const [created] = await sbFetch('cities', 'POST', {name: '', sort_order: cities.length});
+    created.locations = [];
+    cities.push(created);
+    activeTab = cities.length - 1;
+    renderAll();
+    setSyncState('synced', 'Live');
+  } catch(e) { setSyncState('error', 'Failed'); console.error(e); }
+}
+
+async function removeCity(ci) {
+  const city = cities[ci];
+  if (!confirm(`Remove "${city.name||'this city'}" and all its locations?`)) return;
+  setSyncState('syncing', 'Removing…');
+  try {
+    await sbFetch(`cities?id=eq.${city.id}`, 'DELETE');
+    cities.splice(ci, 1);
+    if (activeTab >= cities.length) activeTab = Math.max(0, cities.length - 1);
+    renderAll(); renderMap();
+    setSyncState('synced', 'Live');
+  } catch(e) { setSyncState('error', 'Failed'); console.error(e); }
+}
+
+async function addLocation(ci) {
+  const city = cities[ci];
+  setSyncState('syncing', 'Adding…');
+  try {
+    const [created] = await sbFetch('locations', 'POST', {
+      city_id: city.id, label: '', address: '', lat: null, lng: null, sort_order: city.locations.length
+    });
+    city.locations.push(created);
+    // Re-render just this card
+    const card = document.getElementById(`city-card-${ci}`);
+    if (card) card.replaceWith(buildCityCard(city, ci));
+    renderTabs(); renderRoutes();
+    setSyncState('synced', 'Live');
+    // scroll to new row
+    setTimeout(() => {
+      const rows = document.querySelectorAll(`#city-card-${ci} .loc-row`);
+      if (rows.length) rows[rows.length-1].scrollIntoView({behavior:'smooth',block:'nearest'});
+    }, 50);
+  } catch(e) { setSyncState('error', 'Failed'); console.error(e); }
+}
+
+async function removeLocation(ci, li) {
+  const loc = cities[ci].locations[li];
+  if (cities[ci].locations.length <= 1) { showToast('Need at least one location.'); return; }
+  setSyncState('syncing', 'Removing…');
+  try {
+    await sbFetch(`locations?id=eq.${loc.id}`, 'DELETE');
+    cities[ci].locations.splice(li, 1);
+    const card = document.getElementById(`city-card-${ci}`);
+    if (card) card.replaceWith(buildCityCard(city, ci));
+    renderTabs(); renderRoutes();
+    setSyncState('synced', 'Live');
+  } catch(e) { setSyncState('error', 'Failed'); console.error(e); }
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────
+function renderTabs() {
+  const tabs = document.getElementById('city-tabs');
+  tabs.innerHTML = '';
+  cities.forEach((city, ci) => {
+    const btn = document.createElement('button');
+    btn.className = `city-tab ${ci===activeTab?'active':''}`;
+    btn.textContent = city.name.trim() || `City ${ci+1}`;
+    btn.onclick = () => { activeTab = ci; renderTabs(); renderMap(); };
+    tabs.appendChild(btn);
+  });
+}
+
+// ── Map ───────────────────────────────────────────────────────────
+function initMap() {
+  map = L.map('map').setView([22.3, 114.1], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap contributors', maxZoom:18}).addTo(map);
+  markersLayer = L.layerGroup().addTo(map);
+}
+
+function makeIcon(num) {
+  const bg = PIN_COLORS[(num-1) % PIN_COLORS.length];
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:30px;height:30px;border-radius:50%;background:${bg};color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3);font-family:Inter,sans-serif">${num}</div>`,
+    iconSize:[30,30], iconAnchor:[15,15], popupAnchor:[0,-18]
+  });
+}
+
+function fetchWithTimeout(url, ms) {
+  return new Promise((resolve, reject) => {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = setTimeout(() => { if(controller) controller.abort(); reject(new Error('Timeout')); }, ms);
+    fetch(url, controller ? {signal: controller.signal} : {})
+      .then(r => { clearTimeout(timer); resolve(r); })
+      .catch(e => { clearTimeout(timer); reject(e); });
+  });
+}
+
+async function geocodeAddress(address) {
+  try {
+    const res = await fetchWithTimeout(`https://photon.komoot.io/api/?q=${encodeURIComponent(address)}&limit=1`, 7000);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.features && data.features[0]) {
+      const [lng, lat] = data.features[0].geometry.coordinates;
+      return {lat, lng};
+    }
+  } catch(e) { console.warn('Geocode failed for:', address, e.message); }
+  return null;
+}
+
+let mapInFlight = false;
+
+async function renderMap() {
+  if (mapInFlight) return;
+  if (!map || !markersLayer) { initMap(); setTimeout(renderMap, 300); return; }
+
+  mapInFlight = true;
+  const status = document.getElementById('map-status');
+  try {
+    markersLayer.clearLayers();
+    const city = cities[activeTab];
+    if (!city) { if(status) status.textContent = 'No city selected.'; return; }
+
+    const withAddr = (city.locations||[]).filter(l => l.address.trim());
+    if (withAddr.length === 0) { if(status) status.textContent = 'No addresses for this city yet.'; renderLegend([]); return; }
+
+    if(status) status.textContent = `Locating ${withAddr.length} address${withAddr.length!==1?'es':''}…`;
+
+    // Geocode missing ones in parallel and save back to DB
+    const needsGeo = withAddr.filter(l => l.lat === null || l.lng === null);
+    if (needsGeo.length > 0) {
+      const results = await Promise.allSettled(needsGeo.map(l => geocodeAddress(l.address)));
+      const savePromises = [];
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled' && r.value) {
+          needsGeo[i].lat = r.value.lat;
+          needsGeo[i].lng = r.value.lng;
+          // Save coords to DB so they never need geocoding again
+          if (needsGeo[i].id) {
+            savePromises.push(sbFetch(`locations?id=eq.${needsGeo[i].id}`, 'PATCH', {lat: r.value.lat, lng: r.value.lng}));
+          }
+          console.log('Geocoded & saved:', needsGeo[i].address);
+        }
+      });
+      if (savePromises.length > 0) await Promise.allSettled(savePromises);
+      // Refresh row status badges
+      const ci = activeTab;
+      (city.locations||[]).forEach((_,li) => {
+        const row = document.getElementById(`loc-row-${ci}-${li}`);
+        if (row) row.replaceWith(buildLocRow(ci, li, city.locations[li]));
+      });
+    }
+
+    const coords = [];
+    let num = 1;
+    for (const loc of withAddr) {
+      if (loc.lat !== null && loc.lng !== null) {
+        const label = loc.label.trim() || loc.address;
+        L.marker([loc.lat, loc.lng], {icon: makeIcon(num)})
+          .bindPopup(`<strong style="font-size:13px">${label}</strong><br><span style="font-size:12px;color:#666">${loc.address}</span>`, {maxWidth:240})
+          .addTo(markersLayer);
+        coords.push({lat: loc.lat, lng: loc.lng, label, num});
+        num++;
+      }
+    }
+
+    if (coords.length > 0) {
+      map.fitBounds(L.latLngBounds(coords.map(c=>[c.lat,c.lng])), {padding:[40,40]});
+      if(status) status.textContent = `Showing ${coords.length} of ${withAddr.length} location${withAddr.length!==1?'s':''}.`;
+    } else {
+      if(status) status.textContent = 'Could not locate addresses. Try being more specific.';
+    }
+    renderLegend(coords);
+  } catch(e) {
+    console.error('renderMap error:', e);
+    if(status) status.textContent = 'Map error — check console (F12).';
+  } finally {
+    mapInFlight = false;
+  }
+}
+
+function renderLegend(coords) {
+  const legend = document.getElementById('map-legend');
+  if (!coords.length) { legend.innerHTML = '<span style="font-size:12px;color:#a09d94;font-style:italic">Pins appear here after mapping.</span>'; return; }
+  legend.innerHTML = coords.map(c =>
+    `<div class="legend-item"><div class="legend-dot" style="background:${PIN_COLORS[(c.num-1)%PIN_COLORS.length]}">${c.num}</div><span>${c.label}</span></div>`
+  ).join('');
+}
+
+// ── Routes ────────────────────────────────────────────────────────
+function renderRoutes() {
+  const container = document.getElementById('route-container');
+  container.innerHTML = '';
+  cities.forEach((city, ci) => {
+    const filled = (city.locations||[]).filter(l => l.address.trim());
+    const name = city.name.trim() || `City ${ci+1}`;
+    const div = document.createElement('div'); div.className = 'route-city';
+    const lbl = document.createElement('div'); lbl.className = 'route-label'; lbl.textContent = name;
+    div.appendChild(lbl);
+    const row = document.createElement('div'); row.className = 'route-row';
+    if (!filled.length) {
+      row.innerHTML = '<span class="route-empty">No addresses yet.</span>';
+    } else {
+      const url = buildGMapsUrl(filled);
+      const stops = filled.map((l,i) => `<strong>${l.label.trim()||`Stop ${i+1}`}</strong>${i<filled.length-1?' → ':''}`).join('');
+      row.innerHTML = `<div class="route-stops">${stops}</div>
+        <a class="btn btn-primary btn-sm" href="${url}" target="_blank" style="flex-shrink:0">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>Open in Maps
+        </a>`;
+    }
+    div.appendChild(row); container.appendChild(div);
+  });
+}
+
+function buildGMapsUrl(locs) {
+  const addrs = locs.map(l=>l.address.trim()).filter(Boolean);
+  if (!addrs.length) return '#';
+  if (addrs.length === 1) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addrs[0])}`;
+  const wp = addrs.slice(1,-1).map(encodeURIComponent).join('|');
+  let url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(addrs[0])}&destination=${encodeURIComponent(addrs[addrs.length-1])}`;
+  if (wp) url += `&waypoints=${wp}`;
+  return url;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+// ── Reorder locations ────────────────────────────────────────────
+async function reorderLocation(ci, fromLi, toLi) {
+  const locs = cities[ci].locations;
+  // Adjust toLi if moving down (because we remove fromLi first)
+  const adjustedTo = toLi > fromLi ? toLi - 1 : toLi;
+  const moved = locs.splice(fromLi, 1)[0];
+  locs.splice(adjustedTo, 0, moved);
+
+  // Update sort_order values
+  locs.forEach((l, i) => l.sort_order = i);
+
+  // Re-render this city card
+  const card = document.getElementById(`city-card-${ci}`);
+  if (card) card.replaceWith(buildCityCard(cities[ci], ci));
+  renderRoutes();
+
+  // Save new order to DB in parallel
+  setSyncState('syncing', 'Saving order…');
+  try {
+    await Promise.all(locs.map((l, i) =>
+      l.id ? sbFetch(`locations?id=eq.${l.id}`, 'PATCH', {sort_order: i}) : Promise.resolve()
+    ));
+    setSyncState('synced', 'Live');
+    showToast('Order saved!');
+  } catch(e) {
+    setSyncState('error', 'Save failed');
+    console.error('Reorder save failed:', e);
+  }
+}
+
+function esc(str) { return (str||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500); }
+
+// ── Boot ──────────────────────────────────────────────────────────
+initMap();
+loadData();
+</script>
+</body>
+</html>
