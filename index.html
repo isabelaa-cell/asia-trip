@@ -167,6 +167,14 @@
   .loc-row.dragging { opacity: .4; background: var(--accent-light); }
   .loc-row.drag-over { border-top: 2px solid var(--accent); }
   .loc-row.drag-over-bottom { border-bottom: 2px solid var(--accent); }
+
+  /* ── City drag & drop ── */
+  .city-drag-handle { display: flex; align-items: center; justify-content: center; cursor: grab; color: var(--text-hint); width: 16px; flex-shrink: 0; }
+  .city-drag-handle:active { cursor: grabbing; }
+  .city-drag-handle svg { width: 14px; height: 14px; }
+  .city-card.dragging { opacity: .4; }
+  .city-card.drag-over-top { border-top: 2px solid var(--accent); }
+  .city-card.drag-over-bottom { border-bottom: 2px solid var(--accent); }
 </style>
 </head>
 <body>
@@ -340,7 +348,7 @@ async function loadData() {
 async function seedInitialData() {
   showStatus('Setting up your trip for the first time…', 'info');
   const initialData = [
-    { name: 'Hong Kong', sort_order: 0, locations: [
+    { name: 'Hong Kong', sort_order: 2, locations: [
       {label:'Athos Capital Limited',address:"8 Queen's Road, 8th Floor, Central, Hong Kong",lat:22.2820,lng:114.1558},
       {label:'Grand Alliance Asset Management',address:"Suite 801, 8/F, Hong Kong Club Building, 3A Chater Road, Central, Hong Kong",lat:22.2815,lng:114.1580},
       {label:'Long Corridor Asset Management',address:'AIA Tower, 183 Electric Road, North Point, Hong Kong',lat:22.2908,lng:114.1921},
@@ -359,7 +367,7 @@ async function seedInitialData() {
       {label:'WizardQuant',address:'',lat:null,lng:null},
       {label:'Keyrock',address:'',lat:null,lng:null}
     ]},
-    { name: 'Singapore', sort_order: 1, locations: [
+    { name: 'Singapore', sort_order: 3, locations: [
       {label:'RV Capital Management',address:'16 Raffles Quay, #21-03, Hong Leong Building, Singapore 048581',lat:1.2847,lng:103.8508},
       {label:'Gordian Capital',address:'#05-02, Philippine Airlines Building, 135 Cecil Street, Singapore 069536',lat:1.2793,lng:103.8478},
       {label:'Blue Swell Asset Management',address:'OUE Bayfront, #08-05, 50 Collyer Quay, Singapore 049321',lat:1.2832,lng:103.8503},
@@ -367,14 +375,14 @@ async function seedInitialData() {
       {label:'Alcea Investment & Research',address:'1 Paya Lebar Link, #04-01, Singapore 408533',lat:1.3178,lng:103.8927},
       {label:'Arohi Asset Management',address:'2 Battery Road, #24-01, Maybank Tower, Singapore 049907',lat:null,lng:null}
     ]},
-    { name: 'Tokyo', sort_order: 2, locations: [
+    { name: 'Tokyo', sort_order: 0, locations: [
       {label:'Lighthouse',address:'Level 20, Toranomon Hills Mori Tower, 1-23-1 Toranomon, Minato-ku, Tokyo 105-6320, Japan',lat:35.6672,lng:139.7495},
       {label:'Gordian Capital',address:'Komatsu Building 6F, 3-3-2 Kyobashi, Chuo-ku, Tokyo 104-0031, Japan',lat:35.6771,lng:139.7719},
       {label:'Pi Radians Capital',address:'6-5 Nihonbashi Kabutocho, Chuo-ku, Tokyo 103-0026, Japan',lat:35.6823,lng:139.7742},
       {label:'Schweitzer Investment',address:'4F Hirakawacho KS Building, 2-4-14 Hirakawacho, Chiyoda-ku, Tokyo 102-0093, Japan',lat:35.6868,lng:139.7438},
       {label:'Sumitomo Mitsui Asset Management',address:'Toranomon 1-17-1, Minato-ku, Tokyo 105-6228, Japan',lat:35.6674,lng:139.7494}
     ]},
-    { name: 'Shanghai', sort_order: 3, locations: [
+    { name: 'Shanghai', sort_order: 1, locations: [
       {label:'WizardQuant Capital Advisors',address:'No. 8, Lane 1267, Dongfang Road, 15F, Lujiazui Financial Service Plaza Phase II, Pudong New Area, Shanghai, China',lat:31.2298,lng:121.5440},
       {label:'Mingshi Investment Management',address:'168 Gongping Road, 32F, West Tower, Raffles City The Bund, Shanghai, China',lat:31.2478,lng:121.4928},
       {label:'Wanyan Asset',address:'',lat:null,lng:null}
@@ -462,6 +470,9 @@ function buildCityCard(city, ci) {
   hdr.className = `city-header ${isOpen ? 'open' : ''}`;
   hdr.id = `city-hdr-${ci}`;
   hdr.innerHTML = `
+    <div class="city-drag-handle" title="Drag to reorder cities">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path d="M7 2a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4zm6-12a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4z"/></svg>
+    </div>
     <svg class="chevron ${isOpen?'open':''}" id="chevron-${ci}" viewBox="0 0 20 20" fill="currentColor">
       <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
     </svg>
@@ -478,9 +489,51 @@ function buildCityCard(city, ci) {
       ${cities.length>1?`<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeCity(${ci})">Remove</button>`:''}
     </div>`;
   hdr.addEventListener('click', (e) => {
-    if (e.target.closest('.city-name-input') || e.target.closest('button')) return;
+    if (e.target.closest('.city-name-input') || e.target.closest('button') || e.target.closest('.city-drag-handle')) return;
     toggleCity(ci);
   });
+
+  // City drag events
+  const cityDragHandle = hdr.querySelector('.city-drag-handle');
+  if (cityDragHandle) {
+    card.draggable = true;
+    cityDragHandle.addEventListener('mousedown', () => { card.draggable = true; });
+    card.addEventListener('dragstart', (e) => {
+      if (!e.target.closest('.city-drag-handle') && e.target !== card) { e.preventDefault(); return; }
+      e.dataTransfer.setData('text/plain', JSON.stringify({type:'city', ci}));
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => card.classList.add('dragging'), 0);
+    });
+    card.addEventListener('dragend', () => { card.classList.remove('dragging'); });
+  }
+
+  card.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer.types.includes('text/plain')) return;
+    e.preventDefault();
+    document.querySelectorAll('.city-card').forEach(c => c.classList.remove('drag-over-top','drag-over-bottom'));
+    const rect = card.getBoundingClientRect();
+    if (e.clientY < rect.top + rect.height / 2) card.classList.add('drag-over-top');
+    else card.classList.add('drag-over-bottom');
+  });
+
+  card.addEventListener('dragleave', (e) => {
+    if (!card.contains(e.relatedTarget)) card.classList.remove('drag-over-top','drag-over-bottom');
+  });
+
+  card.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    card.classList.remove('drag-over-top','drag-over-bottom');
+    let payload;
+    try { payload = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
+    if (payload.type !== 'city') return;
+    const fromCi = payload.ci;
+    if (fromCi === ci) return;
+    const rect = card.getBoundingClientRect();
+    let targetCi = ci;
+    if (e.clientY >= rect.top + rect.height / 2) targetCi = ci + 1;
+    await reorderCity(fromCi, targetCi);
+  });
+
   card.appendChild(hdr);
 
   // Body
@@ -885,6 +938,29 @@ function buildGMapsUrl(locs) {
 
 // ── Helpers ───────────────────────────────────────────────────────
 // ── Reorder locations ────────────────────────────────────────────
+
+async function reorderCity(fromCi, toCi) {
+  const adjusted = toCi > fromCi ? toCi - 1 : toCi;
+  const moved = cities.splice(fromCi, 1)[0];
+  cities.splice(adjusted, 0, moved);
+  cities.forEach((c, i) => c.sort_order = i);
+
+  renderAll();
+  renderMap();
+
+  setSyncState('syncing', 'Saving order…');
+  try {
+    await Promise.all(cities.map((c, i) =>
+      c.id ? sbFetch(`cities?id=eq.${c.id}`, 'PATCH', {sort_order: i}) : Promise.resolve()
+    ));
+    setSyncState('synced', 'Live');
+    showToast('City order saved!');
+  } catch(e) {
+    setSyncState('error', 'Save failed');
+    console.error('City reorder save failed:', e);
+  }
+}
+
 async function reorderLocation(ci, fromLi, toLi) {
   const locs = cities[ci].locations;
   // Adjust toLi if moving down (because we remove fromLi first)
