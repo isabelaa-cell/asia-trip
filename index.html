@@ -493,18 +493,24 @@ function buildCityCard(city, ci) {
     toggleCity(ci);
   });
 
-  // City drag events
+  // City drag events — only activate draggable on the city handle to avoid
+  // conflicting with location row drags inside the card
   const cityDragHandle = hdr.querySelector('.city-drag-handle');
   if (cityDragHandle) {
-    card.draggable = true;
+    card.draggable = false; // off by default
     cityDragHandle.addEventListener('mousedown', () => { card.draggable = true; });
+    cityDragHandle.addEventListener('mouseup', () => { card.draggable = false; });
+    document.addEventListener('mouseup', () => { card.draggable = false; }); // safety reset
     card.addEventListener('dragstart', (e) => {
-      if (!e.target.closest('.city-drag-handle') && e.target !== card) { e.preventDefault(); return; }
+      if (!card.draggable) { e.preventDefault(); return; }
       e.dataTransfer.setData('text/plain', JSON.stringify({type:'city', ci}));
       e.dataTransfer.effectAllowed = 'move';
       setTimeout(() => card.classList.add('dragging'), 0);
     });
-    card.addEventListener('dragend', () => { card.classList.remove('dragging'); });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      card.draggable = false;
+    });
   }
 
   card.addEventListener('dragover', (e) => {
