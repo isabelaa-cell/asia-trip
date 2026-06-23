@@ -160,13 +160,11 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   #loading-screen.hidden { display: none; }
 
-  /* ── Drag & drop ── */
-  .drag-handle { display: flex; align-items: center; justify-content: center; cursor: grab; color: var(--text-hint); padding-top: 6px; touch-action: none; }
-  .drag-handle:active { cursor: grabbing; }
-  .drag-handle svg { width: 14px; height: 14px; }
-  .loc-row.dragging { opacity: .4; background: var(--accent-light); }
-  .loc-row.drag-over { border-top: 2px solid var(--accent); }
-  .loc-row.drag-over-bottom { border-bottom: 2px solid var(--accent); }
+  /* ── Up/down reorder ── */
+  .reorder-btns { display: flex; flex-direction: column; gap: 1px; padding-top: 4px; }
+  .reorder-btn { background: transparent; border: none; cursor: pointer; color: var(--text-hint); padding: 1px 3px; border-radius: 3px; line-height: 1; font-size: 11px; transition: all .12s; }
+  .reorder-btn:hover { background: var(--accent-light); color: var(--accent); }
+  .reorder-btn:disabled { opacity: .2; cursor: default; }
 </style>
 </head>
 <body>
@@ -544,9 +542,11 @@ function buildLocRow(ci, li, loc) {
 
   const gmapsUrl = hasAddr ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address)}` : '#';
 
+  const totalLocs = cities[ci].locations.length;
   row.innerHTML = `
-    <div class="drag-handle" draggable="true" data-ci="${ci}" data-li="${li}" title="Drag to reorder">
-      <svg viewBox="0 0 20 20" fill="currentColor"><path d="M7 2a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4zm6-12a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4zm0 6a2 2 0 110 4 2 2 0 010-4z"/></svg>
+    <div class="reorder-btns">
+      <button class="reorder-btn" onclick="moveLocation(${ci},${li},'up')" ${li===0?'disabled':''} title="Move up">▲</button>
+      <button class="reorder-btn" onclick="moveLocation(${ci},${li},'down')" ${li===totalLocs-1?'disabled':''} title="Move down">▼</button>
     </div>
     <div class="row-num">${li+1}</div>
     <div>
@@ -569,41 +569,6 @@ function buildLocRow(ci, li, loc) {
       </button>
     </div>`;
 
-  // Attach drag events
-  const handle = row.querySelector('.drag-handle');
-  handle.addEventListener('dragstart', (e) => {
-    e.dataTransfer.setData('text/plain', JSON.stringify({ci, li}));
-    e.dataTransfer.effectAllowed = 'move';
-    setTimeout(() => row.classList.add('dragging'), 0);
-  });
-  handle.addEventListener('dragend', () => row.classList.remove('dragging'));
-
-  row.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    document.querySelectorAll('.loc-row').forEach(r => r.classList.remove('drag-over','drag-over-bottom'));
-    const rect = row.getBoundingClientRect();
-    const midY = rect.top + rect.height / 2;
-    if (e.clientY < midY) row.classList.add('drag-over');
-    else row.classList.add('drag-over-bottom');
-  });
-
-  row.addEventListener('dragleave', () => {
-    row.classList.remove('drag-over','drag-over-bottom');
-  });
-
-  row.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    row.classList.remove('drag-over','drag-over-bottom');
-    const {ci: fromCi, li: fromLi} = JSON.parse(e.dataTransfer.getData('text/plain'));
-    if (fromCi !== ci) { showToast("Can't move between cities."); return; }
-    if (fromLi === li) return;
-    const rect = row.getBoundingClientRect();
-    const midY = rect.top + rect.height / 2;
-    let targetLi = li;
-    if (e.clientY >= midY) targetLi = li + 1;
-    await reorderLocation(ci, fromLi, targetLi);
-  });
   return row;
 }
 
@@ -758,15 +723,21 @@ function fetchWithTimeout(url, ms) {
 }
 
 async function geocodeAddress(address) {
+  const GOOGLE_KEY = 'AIzaSyC2NtEVPo5jokWxIllVc7d5vAh_LX-aPOA';
   try {
-    const res = await fetchWithTimeout(`https://photon.komoot.io/api/?q=${encodeURIComponent(address)}&limit=1`, 7000);
-    if (!res.ok) return null;
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_KEY}`;
+    const res = await fetchWithTimeout(url, 8000);
+    if (!res.ok) { console.warn('Google Geocode HTTP error', res.status); return null; }
     const data = await res.json();
-    if (data.features && data.features[0]) {
-      const [lng, lat] = data.features[0].geometry.coordinates;
+    if (data.status === 'OK' && data.results && data.results[0]) {
+      const {lat, lng} = data.results[0].geometry.location;
+      console.log('Geocoded via Google:', address, '->', lat, lng);
       return {lat, lng};
     }
-  } catch(e) { console.warn('Geocode failed for:', address, e.message); }
+    console.warn('Google Geocode status:', data.status, 'for', address);
+  } catch(e) {
+    console.warn('Google Geocode failed for', address, '-', e.message);
+  }
   return null;
 }
 
