@@ -160,11 +160,12 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   #loading-screen.hidden { display: none; }
 
-  /* ── Up/down reorder ── */
-  .reorder-btns { display: flex; flex-direction: column; gap: 1px; padding-top: 4px; }
-  .reorder-btn { background: transparent; border: none; cursor: pointer; color: var(--text-hint); padding: 1px 3px; border-radius: 3px; line-height: 1; font-size: 11px; transition: all .12s; }
-  .reorder-btn:hover { background: var(--accent-light); color: var(--accent); }
-  .reorder-btn:disabled { opacity: .2; cursor: default; }
+  /* ── Drag reorder ── */
+  .drag-handle { display: flex; align-items: center; justify-content: center; color: var(--text-hint); padding-top: 5px; cursor: ns-resize; }
+  .drag-handle:hover { color: var(--accent); }
+  .drag-handle svg { width: 14px; height: 14px; pointer-events: none; }
+  .loc-row.drag-over-top { box-shadow: 0 -2px 0 var(--accent); }
+  .loc-row.drag-over-bottom { box-shadow: 0 2px 0 var(--accent); }
 </style>
 </head>
 <body>
@@ -542,11 +543,9 @@ function buildLocRow(ci, li, loc) {
 
   const gmapsUrl = hasAddr ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address)}` : '#';
 
-  const totalLocs = cities[ci].locations.length;
   row.innerHTML = `
-    <div class="reorder-btns">
-      <button class="reorder-btn" onclick="moveLocation(${ci},${li},'up')" ${li===0?'disabled':''} title="Move up">▲</button>
-      <button class="reorder-btn" onclick="moveLocation(${ci},${li},'down')" ${li===totalLocs-1?'disabled':''} title="Move down">▼</button>
+    <div class="drag-handle" title="Drag to reorder">
+      <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="3" r="1.2"/><circle cx="11" cy="3" r="1.2"/><circle cx="5" cy="8" r="1.2"/><circle cx="11" cy="8" r="1.2"/><circle cx="5" cy="13" r="1.2"/><circle cx="11" cy="13" r="1.2"/></svg>
     </div>
     <div class="row-num">${li+1}</div>
     <div>
@@ -568,6 +567,48 @@ function buildLocRow(ci, li, loc) {
         <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
       </button>
     </div>`;
+
+  // ── Drag events ──
+  const handle = row.querySelector('.drag-handle');
+  handle.addEventListener('mousedown', () => { row.draggable = true; });
+  document.addEventListener('mouseup', () => { row.draggable = false; }, {once: false});
+
+  row.addEventListener('dragstart', (e) => {
+    e.dataTransfer.setData('application/json', JSON.stringify({ci, li}));
+    e.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => { row.style.opacity = '0.4'; }, 0);
+  });
+
+  row.addEventListener('dragend', () => {
+    row.style.opacity = '';
+    row.draggable = false;
+    document.querySelectorAll('.loc-row').forEach(r => r.classList.remove('drag-over-top','drag-over-bottom'));
+  });
+
+  row.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    document.querySelectorAll(`#city-card-${ci} .loc-row`).forEach(r => r.classList.remove('drag-over-top','drag-over-bottom'));
+    const rect = row.getBoundingClientRect();
+    if (e.clientY < rect.top + rect.height / 2) row.classList.add('drag-over-top');
+    else row.classList.add('drag-over-bottom');
+  });
+
+  row.addEventListener('dragleave', (e) => {
+    if (!row.contains(e.relatedTarget)) row.classList.remove('drag-over-top','drag-over-bottom');
+  });
+
+  row.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    row.classList.remove('drag-over-top','drag-over-bottom');
+    let payload;
+    try { payload = JSON.parse(e.dataTransfer.getData('application/json')); } catch { return; }
+    if (!payload || payload.ci !== ci || payload.li === li) return;
+    const fromLi = payload.li;
+    const rect = row.getBoundingClientRect();
+    const toLi = e.clientY < rect.top + rect.height / 2 ? li : li + 1;
+    await moveLocation(ci, fromLi, toLi);
+  });
 
   return row;
 }
