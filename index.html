@@ -703,7 +703,7 @@ async function addLocation(ci) {
     city.locations.push(created);
     // Re-render just this card
     const card = document.getElementById(`city-card-${ci}`);
-    if (card) card.replaceWith(buildCityCard(city, ci));
+    if (card) card.replaceWith(buildCityCard(cities[ci], ci));
     renderTabs(); renderRoutes();
     setSyncState('synced', 'Live');
     // scroll to new row
@@ -722,7 +722,7 @@ async function removeLocation(ci, li) {
     await sbFetch(`locations?id=eq.${loc.id}`, 'DELETE');
     cities[ci].locations.splice(li, 1);
     const card = document.getElementById(`city-card-${ci}`);
-    if (card) card.replaceWith(buildCityCard(city, ci));
+    if (card) card.replaceWith(buildCityCard(cities[ci], ci));
     renderTabs(); renderRoutes();
     setSyncState('synced', 'Live');
   } catch(e) { setSyncState('error', 'Failed'); console.error(e); }
