@@ -570,13 +570,17 @@ function buildLocRow(ci, li, loc) {
 
   // ── Drag events ──
   const handle = row.querySelector('.drag-handle');
-  handle.addEventListener('mousedown', () => { row.draggable = true; });
-  document.addEventListener('mouseup', () => { row.draggable = false; }, {once: false});
+  handle.setAttribute('draggable', 'true');
 
-  row.addEventListener('dragstart', (e) => {
-    e.dataTransfer.setData('application/json', JSON.stringify({ci, li}));
+  handle.addEventListener('dragstart', (e) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ci, li}));
     e.dataTransfer.effectAllowed = 'move';
     setTimeout(() => { row.style.opacity = '0.4'; }, 0);
+  });
+
+  handle.addEventListener('dragend', () => {
+    row.style.opacity = '';
+    document.querySelectorAll('.loc-row').forEach(r => r.classList.remove('drag-over-top','drag-over-bottom'));
   });
 
   row.addEventListener('dragend', () => {
@@ -602,7 +606,7 @@ function buildLocRow(ci, li, loc) {
     e.stopPropagation();
     row.classList.remove('drag-over-top','drag-over-bottom');
     let payload;
-    try { payload = JSON.parse(e.dataTransfer.getData('application/json')); } catch { return; }
+    try { payload = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
     if (!payload || payload.ci !== ci || payload.li === li) return;
     const fromLi = payload.li;
     const rect = row.getBoundingClientRect();
