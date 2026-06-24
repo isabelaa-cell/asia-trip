@@ -928,6 +928,34 @@ async function reorderLocation(ci, fromLi, toLi) {
   }
 }
 
+
+// ── Move location (drag reorder) ─────────────────────────────────
+async function moveLocation(ci, fromLi, toLi) {
+  const locs = cities[ci].locations;
+  const adjusted = toLi > fromLi ? toLi - 1 : toLi;
+  if (adjusted === fromLi || adjusted < 0 || adjusted >= locs.length) return;
+
+  const moved = locs.splice(fromLi, 1)[0];
+  locs.splice(adjusted, 0, moved);
+  locs.forEach((l, i) => l.sort_order = i);
+
+  const card = document.getElementById(`city-card-${ci}`);
+  if (card) card.replaceWith(buildCityCard(cities[ci], ci));
+  renderRoutes();
+
+  setSyncState('syncing', 'Saving…');
+  try {
+    await Promise.all(locs.map((l, i) =>
+      l.id ? sbFetch(`locations?id=eq.${l.id}`, 'PATCH', {sort_order: i}) : Promise.resolve()
+    ));
+    setSyncState('synced', 'Live');
+    showToast('Order saved!');
+  } catch(e) {
+    setSyncState('error', 'Save failed');
+    console.error('Move failed:', e);
+  }
+}
+
 function esc(str) { return (str||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500); }
 
